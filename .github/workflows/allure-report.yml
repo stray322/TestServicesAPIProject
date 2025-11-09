@@ -47,50 +47,59 @@ jobs:
           echo "📋 Updated migrate section:"
           grep -A5 "migrate:" docker-compose.yaml
 
-      - name: Start database and wait for readiness
+      - name: Start all services with Docker Compose
         run: |
-          echo "🐘 Starting database..."
+          echo "🚀 Starting all services together..."
           cd app-repo
-          docker-compose up -d postgres
+          # Запускаем ВСЕ сервисы из docker-compose.yaml
+          docker-compose up -d
+          
+          echo "📊 Checking running containers:"
+          docker-compose ps
+
+      - name: Wait for database readiness
+        run: |
+          echo "⏳ Waiting for PostgreSQL to be ready..."
+          cd app-repo
           
           # Ждем готовности PostgreSQL
-          echo "⏳ Waiting for PostgreSQL to be ready..."
-          for i in {1..20}; do
+          for i in {1..30}; do
             if docker-compose exec -T postgres pg_isready -U ${{ secrets.POSTGRES_USER }}; then
-              echo "✅ PostgreSQL is ready"
+              echo "✅ PostgreSQL is ready!"
               break
             fi
-            echo "Waiting for PostgreSQL... $i/20"
+            echo "Waiting for PostgreSQL... $i/30"
             sleep 3
           done
+          
+          # Дополнительная проверка - пробуем подключиться к БД
+          echo "🔍 Testing database connection..."
+          if docker-compose exec -T postgres psql -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -c "SELECT 1;" > /dev/null 2>&1; then
+            echo "✅ Database connection successful"
+          else
+            echo "⚠️ Database connection test failed, but continuing..."
+          fi
 
-      - name: Run migrations
+      - name: Check migration status
         run: |
-          echo "🔄 Running database migrations..."
+          echo "🔍 Checking migration status..."
           cd app-repo
-          # Запускаем миграции и игнорируем ошибки (продолжаем в любом случае)
-          docker-compose up migrate || echo "⚠️ Migrations completed with warnings, but continuing..."
-
-      - name: Start application service
-        run: |
-          echo "🚀 Starting application service..."
-          cd app-repo
-          docker-compose up -d service
-          sleep 15
-
-      - name: Check services status
-        run: |
-          echo "🔍 Checking services status..."
-          cd app-repo
-          echo "📊 Running containers:"
-          docker-compose ps
-          echo "🔍 Application logs:"
-          docker-compose logs service --tail=20
+          
+          # Проверяем статус сервиса миграций
+          echo "📋 Migration service status:"
+          docker-compose ps migrate
+          
+          # Смотрим логи миграций
+          echo "📄 Migration logs:"
+          docker-compose logs migrate --tail=20
 
       - name: Wait for application to be ready
         run: |
           echo "⏳ Waiting for application to be ready..."
           cd app-repo
+          
+          # Даем время для полного запуска приложения
+          sleep 10
           
           for i in {1..30}; do
             # Проверяем различные возможные эндпоинты
@@ -114,19 +123,51 @@ jobs:
               break
             fi
           
+            # Пробуем проверить Swagger/docs если есть
+            if curl -s -f http://localhost:8080/swagger-ui.html > /dev/null 2>&1; then
+              echo "✅ Swagger endpoint is responding!"
+              break
+            fi
+          
+            if curl -s -f http://localhost:8080/v3/api-docs > /dev/null 2>&1; then
+              echo "✅ OpenAPI docs endpoint is responding!"
+              break
+            fi
+          
             echo "Attempt $i/30 - Application not ready..."
+          
+            # Показываем логи приложения для диагностики
+            if [ $i -eq 10 ] || [ $i -eq 20 ]; then
+              echo "📄 Application logs (attempt $i):"
+              docker-compose logs service --tail=15
+            fi
+          
             sleep 5
           done
           
-          # Финальная проверка
+          # Финальная проверка и диагностика
+          echo "🔍 Final application check..."
           if curl -s -f http://localhost:8080 > /dev/null; then
             echo "🎉 Application is ready for testing!"
+          
+            # Показываем финальный статус всех сервисов
+            echo "📊 Final services status:"
+            docker-compose ps
+          
+            # Показываем сетевые подключения
+            echo "🌐 Network connections:"
+            docker-compose exec service netstat -tuln || echo "Netstat not available"
+          
           else
             echo "❌ Application failed to respond"
-            echo "📋 Final check - container status:"
+            echo "📋 Container status:"
             docker-compose ps -a
-            echo "🔍 Final application logs:"
+            echo "🔍 Application logs:"
             docker-compose logs service
+            echo "🔍 Database logs:"
+            docker-compose logs postgres --tail=20
+            echo "🔍 Migration logs:"
+            docker-compose logs migrate
             exit 1
           fi
 
@@ -148,6 +189,7 @@ jobs:
           echo "🛑 Stopping all services..."
           cd app-repo
           docker-compose down
+          echo "✅ All services stopped"
 
       - name: Prepare Allure results
         if: always()
@@ -159,6 +201,8 @@ jobs:
             echo "✅ Test results copied"
           else
             echo "⚠️ No test results found"
+            # Создаем заглушку если результатов нет
+            echo '{"name": "No tests executed", "status": "broken"}' > allure-results/no-tests.json
           fi
 
       - name: Generate and Publish Allure report
