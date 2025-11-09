@@ -1,56 +1,66 @@
 package tests;
 
-import io.qameta.allure.*;
+import io.qameta.allure.Description;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import io.qameta.allure.Story;
 import models.Entity;
+import org.assertj.core.api.SoftAssertions;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import utils.APIEndpoints;
 import utils.TestDataGenerator;
 import utils.TestHelper;
 
-import static io.restassured.RestAssured.given;
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
- * Тесты для проверки функциональности обновления сущностей через API.
- * Содержит сценарии полного обновления данных сущности.
+ * Тесты обновления сущностей
  */
 @Epic("API Тесты для работы с сущностями")
 @Feature("Обновление сущностей")
 public class UpdateEntityTest extends BaseTest {
 
-    /**
-     * Проверяет обновление данных существующей сущности.
-     * Тест создает сущность, обновляет её случайными данными и проверяет изменения.
-     */
+    private Integer testEntityId;
+
+    @BeforeMethod
+    public void setUp() {
+        Entity testEntity = TestDataGenerator.generateFullEntity();
+        testEntityId = TestHelper.createEntity(testEntity, requestSpec);
+    }
+
+    @AfterMethod
+    public void tearDown() {
+        TestHelper.safeDeleteEntity(testEntityId, requestSpec);
+    }
+
     @Test
     @Story("Обновление сущности")
-    @Severity(SeverityLevel.NORMAL)
-    @Description("Проверка обновления данных сущности со случайными данными")
+    @Severity(SeverityLevel.CRITICAL)
+    @Description("Проверка полного обновления сущности")
     public void updateEntityTest() {
-        Entity testEntity = TestDataGenerator.generateRandomEntity();
-        Integer entityId = TestHelper.createEntityAndGetId(testEntity, requestSpec);
+        Entity originalEntity = TestHelper.getEntity(testEntityId, requestSpec);
+        Entity updateData = TestDataGenerator.generateUpdateData();
 
-        Entity updateData = TestDataGenerator.generateRandomUpdateData();
+        TestHelper.updateEntity(testEntityId, updateData, requestSpec);
+        Entity updatedEntity = TestHelper.getEntity(testEntityId, requestSpec);
 
-        given()
-                .spec(requestSpec)
-                .pathParam("id", entityId)
-                .body(updateData)
-                .when()
-                .patch(APIEndpoints.UPDATE_ENDPOINT)
-                .then()
-                .statusCode(204);
+        verifyEntityUpdated(updatedEntity, updateData);
+    }
 
-        Entity updatedEntity = TestHelper.getEntityById(entityId, requestSpec);
+    private void verifyEntityUpdated(Entity actual, Entity expected) {
+        SoftAssertions softly = new SoftAssertions();
+        softly.assertThat(actual.getTitle()).isEqualTo(expected.getTitle());
+        softly.assertThat(actual.getVerified()).isEqualTo(expected.getVerified());
+        softly.assertThat(actual.getImportantNumbers()).isEqualTo(expected.getImportantNumbers());
 
-        assertThat(updatedEntity.getTitle()).isEqualTo(updateData.getTitle());
-        assertThat(updatedEntity.getVerified()).isEqualTo(updateData.getVerified());
-        assertThat(updatedEntity.getImportantNumbers()).isEqualTo(updateData.getImportantNumbers());
-        assertThat(updatedEntity.getAddition().getAdditionalInfo())
-                .isEqualTo(updateData.getAddition().getAdditionalInfo());
-        assertThat(updatedEntity.getAddition().getAdditionalNumber())
-                .isEqualTo(updateData.getAddition().getAdditionalNumber());
+        if (expected.getAddition() != null) {
+            softly.assertThat(actual.getAddition().getAdditionalInfo())
+                    .isEqualTo(expected.getAddition().getAdditionalInfo());
+            softly.assertThat(actual.getAddition().getAdditionalNumber())
+                    .isEqualTo(expected.getAddition().getAdditionalNumber());
+        }
 
-        TestHelper.deleteEntity(entityId, requestSpec);
+        softly.assertAll();
     }
 }

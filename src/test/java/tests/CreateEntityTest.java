@@ -1,44 +1,87 @@
 package tests;
 
-import io.qameta.allure.*;
+import io.qameta.allure.Description;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import io.qameta.allure.Story;
 import models.Entity;
+import org.assertj.core.api.SoftAssertions;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import utils.TestDataGenerator;
 import utils.TestHelper;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Тесты для проверки функциональности создания сущностей через API.
- * Содержит позитивные сценарии создания сущностей со случайными данными.
+ * Тесты создания сущностей
  */
 @Epic("API Тесты для работы с сущностями")
 @Feature("Создание сущностей")
 public class CreateEntityTest extends BaseTest {
 
-    /**
-     * Проверяет создание новой сущности со случайными данными.
-     * Тест включает полную проверку всех полей созданной сущности.
-     */
+    private List<Integer> createdEntityIds;
+
+    @BeforeMethod
+    public void setUp() {
+        createdEntityIds = new ArrayList<>();
+    }
+
+    @AfterMethod
+    public void tearDown() {
+        TestHelper.safeDeleteEntities(createdEntityIds, requestSpec);
+    }
+
     @Test
     @Story("Создание сущности")
-    @Severity(SeverityLevel.BLOCKER)
-    @Description("Проверка создания новой сущности со случайными данными")
-    public void createEntityTest() {
-        Entity testEntity = TestDataGenerator.generateRandomEntity();
+    @Severity(SeverityLevel.CRITICAL)
+    @Description("Проверка создания сущности со всеми полями")
+    public void createFullEntityTest() {
+        Entity testEntity = TestDataGenerator.generateFullEntity();
 
-        Integer entityId = TestHelper.createEntityAndGetId(testEntity, requestSpec);
+        Integer entityId = TestHelper.createEntity(testEntity, requestSpec);
+        createdEntityIds.add(entityId);
 
-        Entity responseEntity = TestHelper.getEntityById(entityId, requestSpec);
+        Entity responseEntity = TestHelper.getEntity(entityId, requestSpec);
+        verifyEntitiesMatch(testEntity, responseEntity);
+    }
 
-        assertThat(responseEntity.getTitle()).isEqualTo(testEntity.getTitle());
-        assertThat(responseEntity.getVerified()).isEqualTo(testEntity.getVerified());
-        assertThat(responseEntity.getImportantNumbers()).isEqualTo(testEntity.getImportantNumbers());
-        assertThat(responseEntity.getAddition().getAdditionalInfo())
-                .isEqualTo(testEntity.getAddition().getAdditionalInfo());
-        assertThat(responseEntity.getAddition().getAdditionalNumber())
-                .isEqualTo(testEntity.getAddition().getAdditionalNumber());
+    @Test
+    @Story("Создание минимальной сущности")
+    @Severity(SeverityLevel.NORMAL)
+    @Description("Проверка создания сущности только с обязательными полями")
+    public void createMinimalEntityTest() {
+        Entity testEntity = TestDataGenerator.generateMinimalEntity();
 
-        TestHelper.deleteEntity(entityId, requestSpec);
+        Integer entityId = TestHelper.createEntity(testEntity, requestSpec);
+        createdEntityIds.add(entityId);
+
+        Entity responseEntity = TestHelper.getEntity(entityId, requestSpec);
+
+        SoftAssertions softly = new SoftAssertions();
+        softly.assertThat(responseEntity.getTitle()).isEqualTo(testEntity.getTitle());
+        softly.assertThat(responseEntity.getVerified()).isEqualTo(testEntity.getVerified());
+        softly.assertAll();
+    }
+
+    private void verifyEntitiesMatch(Entity expected, Entity actual) {
+        SoftAssertions softly = new SoftAssertions();
+        softly.assertThat(actual.getTitle()).isEqualTo(expected.getTitle());
+        softly.assertThat(actual.getVerified()).isEqualTo(expected.getVerified());
+        softly.assertThat(actual.getImportantNumbers()).isEqualTo(expected.getImportantNumbers());
+
+        if (expected.getAddition() != null) {
+            softly.assertThat(actual.getAddition()).isNotNull();
+            softly.assertThat(actual.getAddition().getAdditionalInfo())
+                    .isEqualTo(expected.getAddition().getAdditionalInfo());
+            softly.assertThat(actual.getAddition().getAdditionalNumber())
+                    .isEqualTo(expected.getAddition().getAdditionalNumber());
+        }
+
+        softly.assertAll();
     }
 }

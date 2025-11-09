@@ -1,59 +1,48 @@
 package utils;
 
-import io.qameta.allure.Allure;
-
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
 /**
  * Утилита для работы с конфигурационными параметрами.
- * Обеспечивает загрузку параметров из файла config.properties и централизованный доступ к настройкам.
+ * Обеспечивает загрузку и доступ к настройкам из файла config.properties.
  */
-public class ConfigReader{
+public class ConfigReader {
 
-    /**
-     * Объект Properties для хранения загруженных параметров конфигурации.
-     */
-    private static final Properties properties = new Properties();
+    private static final Properties PROPERTIES = new Properties();
 
     static {
+        loadProperties();
+    }
+
+    /**
+     * Загружает свойства из файла config.properties.
+     *
+     * @throws IllegalStateException если файл не найден или произошла ошибка загрузки
+     */
+    private static void loadProperties() {
         try (InputStream input = ConfigReader.class.getClassLoader().getResourceAsStream("config.properties")) {
-
             if (input == null) {
-                String errorMsg = "Файл config.properties не найден в classpath";
-                Allure.addAttachment("Ошибка", "text/plain", errorMsg);
-                throw new AssertionError(errorMsg);
+                throw new IllegalStateException("Файл config.properties не найден в classpath");
             }
-
-            properties.load(input);
-            Allure.addAttachment("Загруженные параметры", properties.toString());
-
-        } catch (IOException e) {
-            String errorMsg = String.format("Ошибка чтения config.properties: %s", e.getMessage());
-            Allure.addAttachment("Исключение", "text/plain", errorMsg);
-            throw new AssertionError(errorMsg, e);
+            PROPERTIES.load(input);
+        } catch (Exception e) {
+            throw new IllegalStateException("Ошибка загрузки config.properties", e);
         }
     }
 
     /**
      * Получает значение параметра по ключу.
      *
-     * @param key ключ параметра в формате "section.property"
-     * @return значение параметра в виде строки
-     * @throws AssertionError если параметр не найден в конфигурации
+     * @param key ключ параметра
+     * @return значение параметра
+     * @throws IllegalArgumentException если параметр отсутствует в config.properties
      */
     public static String getProperty(String key) {
-        String value = properties.getProperty(key);
-
+        String value = PROPERTIES.getProperty(key);
         if (value == null) {
-            String errorMsg = String.format("Параметр '%s' отсутствует в config.properties", key);
-            Allure.addAttachment("Не найден параметр", "text/plain", errorMsg);
-            throw new AssertionError(errorMsg);
+            throw new IllegalArgumentException("Параметр '" + key + "' отсутствует в config.properties");
         }
-
-        Allure.addAttachment("Используемый параметр",
-                String.format("Ключ: %s\nЗначение: %s", key, value));
         return value;
     }
 }

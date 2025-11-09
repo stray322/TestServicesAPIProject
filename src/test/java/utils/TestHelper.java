@@ -1,141 +1,160 @@
 package utils;
 
-import io.qameta.allure.Allure;
+import io.qameta.allure.Step;
+import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import models.Entity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.Map;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.notNullValue;
 
 /**
- * Вспомогательный класс для общих операций с сущностями в тестах.
- * Содержит методы для создания, получения и удаления сущностей.
+ * Вспомогательные методы для работы с API.
+ * Содержит методы для выполнения CRUD операций с сущностями.
  */
-public class TestHelper {
+public final class TestHelper {
+
+    private static final Logger logger = LoggerFactory.getLogger(TestHelper.class);
+    private static final int HTTP_OK = 200;
+    private static final int HTTP_NO_CONTENT = 204;
+
+    private TestHelper() {
+        throw new UnsupportedOperationException("Утильный класс не может быть инстанциирован");
+    }
 
     /**
-     * Создает сущность через API и возвращает её идентификатор.
-     *
-     * @param entity сущность для создания
-     * @param requestSpec спецификация REST запроса
-     * @return идентификатор созданной сущности
-     * @throws AssertionError если создание сущности завершилось ошибкой
+     * Создает новую сущность в системе.
      */
-    public static Integer createEntityAndGetId(Entity entity, RequestSpecification requestSpec) {
-        try {
-            String response = given()
-                    .spec(requestSpec)
-                    .body(entity)
-                    .when()
-                    .post(APIEndpoints.CREATE_ENDPOINT)
-                    .then()
-                    .statusCode(200)
-                    .body(notNullValue())
-                    .extract()
-                    .body()
-                    .asString();
+    @Step("Создать сущность")
+    public static Integer createEntity(Entity entity, RequestSpecification spec) {
+        String response = given()
+                .spec(spec)
+                .body(entity)
+                .when()
+                .post(APIEndpoints.CREATE_ENDPOINT)
+                .then()
+                .statusCode(HTTP_OK)
+                .extract()
+                .body()
+                .asString();
 
-            Integer entityId = Integer.parseInt(response);
-            Allure.addAttachment("Создана сущность", "text/plain",
-                    String.format("ID: %d, Title: %s", entityId, entity.getTitle()));
-            return entityId;
+        return Integer.parseInt(response.trim());
+    }
 
-        } catch (Exception e) {
-            String errorMessage = String.format("Не удалось создать сущность: %s", e.getMessage());
-            Allure.addAttachment("Ошибка создания сущности", "text/plain", errorMessage);
-            throw new AssertionError(errorMessage, e);
-        }
+    /**
+     * Получает сущность по идентификатору.
+     */
+    @Step("Получить сущность по ID {entityId}")
+    public static Entity getEntity(Integer entityId, RequestSpecification spec) {
+        return given()
+                .spec(spec)
+                .pathParam("id", entityId)
+                .when()
+                .get(APIEndpoints.GET_ENDPOINT)
+                .then()
+                .statusCode(HTTP_OK)
+                .extract()
+                .as(Entity.class);
+    }
+
+    /**
+     * Обновляет существующую сущность.
+     */
+    @Step("Обновить сущность {entityId}")
+    public static void updateEntity(Integer entityId, Entity updateData, RequestSpecification spec) {
+        given()
+                .spec(spec)
+                .pathParam("id", entityId)
+                .body(updateData)
+                .when()
+                .patch(APIEndpoints.UPDATE_ENDPOINT)
+                .then()
+                .statusCode(HTTP_NO_CONTENT);
     }
 
     /**
      * Удаляет сущность по идентификатору.
-     *
-     * @param entityId идентификатор сущности для удаления
-     * @param requestSpec спецификация REST запроса
-     * @throws AssertionError если удаление сущности завершилось ошибкой
      */
-    public static void deleteEntity(Integer entityId, RequestSpecification requestSpec) {
-        try {
-            given()
-                    .spec(requestSpec)
-                    .pathParam("id", entityId)
-                    .delete(APIEndpoints.DELETE_ENDPOINT)
-                    .then()
-                    .statusCode(204);
-
-            Allure.addAttachment("Удалена сущность", "text/plain",
-                    String.format("ID: %d", entityId));
-
-        } catch (Exception e) {
-            String errorMessage = String.format("Не удалось удалить сущность с ID %d: %s", entityId, e.getMessage());
-            Allure.addAttachment("Ошибка удаления сущности", "text/plain", errorMessage);
-            throw new AssertionError(errorMessage, e);
-        }
+    @Step("Удалить сущность {entityId}")
+    public static void deleteEntity(Integer entityId, RequestSpecification spec) {
+        given()
+                .spec(spec)
+                .pathParam("id", entityId)
+                .when()
+                .delete(APIEndpoints.DELETE_ENDPOINT)
+                .then()
+                .statusCode(HTTP_NO_CONTENT);
     }
 
     /**
-     * Получает сущность по идентификатору и десериализует ответ.
-     *
-     * @param entityId идентификатор сущности
-     * @param requestSpec спецификация REST запроса
-     * @return десериализованный объект сущности
-     * @throws AssertionError если получение сущности завершилось ошибкой
+     * Получает список всех сущностей.
+     * Реальная структура ответа: {"entity": [...], "page": X, "perPage": Y}
      */
-    public static Entity getEntityById(Integer entityId, RequestSpecification requestSpec) {
+    @Step("Получить список сущностей")
+    public static List<Entity> getAllEntities(RequestSpecification spec) {
+        return given()
+                .spec(spec)
+                .when()
+                .get(APIEndpoints.GET_ALL_ENDPOINT)
+                .then()
+                .statusCode(HTTP_OK)
+                .extract()
+                .jsonPath()
+                .getList("entity", Entity.class);
+    }
+
+    /**
+     * Проверяет существование сущности в системе.
+     */
+    @Step("Проверить существование сущности {entityId}")
+    public static boolean isEntityExists(Integer entityId, RequestSpecification spec) {
+        if (entityId == null) {
+            return false;
+        }
+
         try {
-            Entity entity = given()
-                    .spec(requestSpec)
+            Response response = given()
+                    .spec(spec)
                     .pathParam("id", entityId)
                     .when()
-                    .get(APIEndpoints.GET_ENDPOINT)
-                    .then()
-                    .statusCode(200)
-                    .extract()
-                    .as(Entity.class);
+                    .get(APIEndpoints.GET_ENDPOINT);
 
-            Allure.addAttachment("Получена сущность", "application/json",
-                    String.format("ID: %d, Title: %s", entityId, entity.getTitle()));
-            return entity;
-
+            return response.getStatusCode() == HTTP_OK;
         } catch (Exception e) {
-            String errorMessage = String.format("Не удалось получить сущность с ID %d: %s", entityId, e.getMessage());
-            Allure.addAttachment("Ошибка получения сущности", "text/plain", errorMessage);
-            throw new AssertionError(errorMessage, e);
+            logger.debug("Сущность {} не существует: {}", entityId, e.getMessage());
+            return false;
         }
     }
 
     /**
-     * Безопасно извлекает список сущностей из ответа, анализируя его структуру.
-     *
-     * @param response объект ответа от API
-     * @return список сущностей или null, если список не найден
+     * Безопасно удаляет сущность, проверяя ее существование перед удалением.
      */
-    @SuppressWarnings("unchecked")
-    public static List<Map<String, Object>> safelyExtractEntitiesList(Object response) {
-        if (response instanceof List) {
-            return (List<Map<String, Object>>) response;
-        } else if (response instanceof Map) {
-            Map<String, Object> responseMap = (Map<String, Object>) response;
+    @Step("Безопасное удаление сущности {entityId}")
+    public static void safeDeleteEntity(Integer entityId, RequestSpecification spec) {
+        if (entityId == null) return;
 
-            String[] possibleListFields = {"content", "data", "items", "entities", "results", "list"};
-            for (String field : possibleListFields) {
-                if (responseMap.containsKey(field) && responseMap.get(field) instanceof List) {
-                    return (List<Map<String, Object>>) responseMap.get(field);
-                }
+        if (isEntityExists(entityId, spec)) {
+            try {
+                deleteEntity(entityId, spec);
+                logger.info("Сущность {} успешно удалена", entityId);
+            } catch (Exception e) {
+                logger.warn("Ошибка при удалении сущности {}: {}", entityId, e.getMessage());
             }
-
-            for (Object value : responseMap.values()) {
-                if (value instanceof List) {
-                    List<?> list = (List<?>) value;
-                    if (!list.isEmpty() && list.get(0) instanceof Map) {
-                        return (List<Map<String, Object>>) list;
-                    }
-                }
-            }
+        } else {
+            logger.debug("Сущность {} уже удалена или не существует", entityId);
         }
-        return null;
+    }
+
+    /**
+     * Безопасно удаляет список сущностей.
+     */
+    @Step("Безопасное удаление списка сущностей")
+    public static void safeDeleteEntities(List<Integer> entityIds, RequestSpecification spec) {
+        if (entityIds == null || entityIds.isEmpty()) return;
+
+        entityIds.forEach(entityId -> safeDeleteEntity(entityId, spec));
     }
 }

@@ -1,139 +1,124 @@
 package utils;
 
+import io.qameta.allure.Step;
 import models.Addition;
 import models.Entity;
 
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Генератор случайных тестовых данных для сущностей.
- * Обеспечивает создание разнообразных тестовых данных для предотвращения эффекта пестицида.
+ * Генератор тестовых данных для сущностей.
+ * Обеспечивает создание случайных и уникальных данных для тестирования.
  */
-public class TestDataGenerator {
-    private static final Random random = new Random();
-    private static final String[] TEXTS = {"Test Data", "Sample Info", "Demo Content", "Random Text", "Test Info", "Additional Data"};
-    private static final Boolean[] BOOLEANS = {true, false};
-    private static final String[] TITLES = {"Entity", "Object", "Item", "Record", "Data Point"};
+public final class TestDataGenerator {
+
+    private static final Random RANDOM = new Random();
+    private static final AtomicLong UNIQUE_COUNTER = new AtomicLong(System.currentTimeMillis());
+    private static final String[] TITLES = {"Entity", "Object", "Item", "Record"};
+    private static final String[] INFO_TEXTS = {"Test", "Sample", "Demo", "Random"};
 
     /**
-     * Генерирует случайную сущность для тестирования с уникальными данными.
-     *
-     * @return Entity со случайно сгенерированными значениями всех полей
-     * @throws AssertionError если не удалось сгенерировать сущность
+     * Приватный конструктор для предотвращения создания экземпляров утильного класса.
      */
-    public static Entity generateRandomEntity() {
-        try {
-            return Entity.builder()
-                    .title(generateRandomTitle())
-                    .verified(generateRandomBoolean())
-                    .importantNumbers(generateRandomNumbers())
-                    .addition(generateRandomAddition())
-                    .build();
-        } catch (Exception e) {
-            throw new AssertionError("Не удалось сгенерировать случайную сущность", e);
-        }
+    private TestDataGenerator() {
+        throw new UnsupportedOperationException("Это утильный класс и не может быть инстанциирован");
     }
 
     /**
-     * Генерирует случайные данные для обновления существующей сущности.
+     * Генерирует сущность с указанными параметрами.
      *
-     * @return Entity с обновленными случайными значениями
-     * @throws AssertionError если не удалось сгенерировать данные для обновления
+     * @param includeNumbers true - включает важные числа, false - исключает
+     * @param includeAddition true - включает дополнительную информацию, false - исключает
+     * @return сгенерированная сущность
      */
-    public static Entity generateRandomUpdateData() {
-        try {
-            return Entity.builder()
-                    .title("Updated " + generateRandomTitle())
-                    .verified(generateRandomBoolean())
-                    .importantNumbers(generateRandomNumbers())
-                    .addition(generateRandomAddition())
-                    .build();
-        } catch (Exception e) {
-            throw new AssertionError("Не удалось сгенерировать данные для обновления сущности", e);
+    @Step("Сгенерировать сущность")
+    public static Entity generateEntity(boolean includeNumbers, boolean includeAddition) {
+        Entity.EntityBuilder builder = Entity.builder()
+                .title(generateUniqueTitle())
+                .verified(RANDOM.nextBoolean());
+
+        if (includeNumbers) {
+            builder.importantNumbers(generateNumbers());
         }
+
+        if (includeAddition) {
+            builder.addition(generateAddition());
+        }
+
+        return builder.build();
     }
 
     /**
-     * Генерирует сущность только с обязательными полями.
+     * Генерирует полную сущность со всеми полями.
      *
-     * @return Entity с минимальным набором данных
-     * @throws AssertionError если не удалось сгенерировать минимальную сущность
+     * @return полная сущность с числами и дополнительной информацией
      */
+    @Step("Сгенерировать полную сущность")
+    public static Entity generateFullEntity() {
+        return generateEntity(true, true);
+    }
+
+    /**
+     * Генерирует данные для обновления сущности.
+     *
+     * @return сущность с обновленными данными
+     */
+    @Step("Сгенерировать данные для обновления")
+    public static Entity generateUpdateData() {
+        return Entity.builder()
+                .title("Updated_" + generateUniqueTitle())
+                .verified(RANDOM.nextBoolean())
+                .importantNumbers(generateNumbers())
+                .addition(generateAddition())
+                .build();
+    }
+
+    /**
+     * Генерирует минимальную сущность только с обязательными полями.
+     *
+     * @return минимальная сущность без чисел и дополнительной информации
+     */
+    @Step("Сгенерировать минимальную сущность")
     public static Entity generateMinimalEntity() {
-        try {
-            return Entity.builder()
-                    .title(generateRandomTitle())
-                    .verified(generateRandomBoolean())
-                    .build();
-        } catch (Exception e) {
-            throw new AssertionError("Не удалось сгенерировать минимальную сущность", e);
-        }
+        return generateEntity(false, false);
     }
 
     /**
-     * Генерирует уникальное название для сущности.
+     * Генерирует уникальный заголовок для сущности.
      *
-     * @return строка с уникальным названием
-     * @throws AssertionError если не удалось сгенерировать название
+     * @return уникальный заголовок
      */
-    private static String generateRandomTitle() {
-        try {
-            String baseTitle = TITLES[random.nextInt(TITLES.length)];
-            return baseTitle + "_" + System.currentTimeMillis() + "_" + random.nextInt(1000);
-        } catch (Exception e) {
-            throw new AssertionError("Не удалось сгенерировать название сущности", e);
-        }
-    }
-
-    /**
-     * Генерирует случайное булево значение.
-     *
-     * @return случайное true или false
-     * @throws AssertionError если не удалось сгенерировать булево значение
-     */
-    private static Boolean generateRandomBoolean() {
-        try {
-            return BOOLEANS[random.nextInt(BOOLEANS.length)];
-        } catch (Exception e) {
-            throw new AssertionError("Не удалось сгенерировать булево значение", e);
-        }
+    private static String generateUniqueTitle() {
+        long uniqueId = UNIQUE_COUNTER.incrementAndGet();
+        return TITLES[RANDOM.nextInt(TITLES.length)] + "_" + uniqueId;
     }
 
     /**
      * Генерирует список случайных чисел.
      *
-     * @return список из 1-5 случайных чисел в диапазоне 1-100
-     * @throws AssertionError если не удалось сгенерировать список чисел
+     * @return список из 1-3 случайных чисел
      */
-    private static List<Integer> generateRandomNumbers() {
-        try {
-            int count = random.nextInt(5) + 1;
-            return IntStream.range(0, count)
-                    .map(i -> random.nextInt(100) + 1)
-                    .boxed()
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new AssertionError("Не удалось сгенерировать список чисел", e);
-        }
+    private static List<Integer> generateNumbers() {
+        return IntStream.range(0, RANDOM.nextInt(3) + 1)
+                .map(i -> RANDOM.nextInt(100) + 1)
+                .boxed()
+                .collect(Collectors.toList());
     }
 
     /**
-     * Генерирует случайные дополнительные данные.
+     * Генерирует дополнительную информацию для сущности.
      *
-     * @return Addition со случайными значениями
-     * @throws AssertionError если не удалось сгенерировать дополнительные данные
+     * @return объект с дополнительной информацией
      */
-    private static Addition generateRandomAddition() {
-        try {
-            return Addition.builder()
-                    .additionalInfo(TEXTS[random.nextInt(TEXTS.length)] + " " + random.nextInt(100))
-                    .additionalNumber(random.nextInt(1000))
-                    .build();
-        } catch (Exception e) {
-            throw new AssertionError("Не удалось сгенерировать дополнительные данные", e);
-        }
+    private static Addition generateAddition() {
+        return Addition.builder()
+                .additionalInfo(INFO_TEXTS[RANDOM.nextInt(INFO_TEXTS.length)] + "_info_" +
+                        UNIQUE_COUNTER.get())
+                .additionalNumber(RANDOM.nextInt(1000))
+                .build();
     }
 }

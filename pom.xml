@@ -9,46 +9,49 @@
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
 
-        <!-- Dependency Versions -->
-        <allure.version>2.23.0</allure.version>
-        <rest-assured.version>5.4.0</rest-assured.version>
-        <lombok.version>1.18.32</lombok.version>
-        <aspectj.version>1.9.7</aspectj.version>
-        <commons-codec.version>1.17.0</commons-codec.version>
+        <!-- Test Framework Versions -->
         <testng.version>7.10.2</testng.version>
-        <jackson.version>2.15.2</jackson.version>
-        <maven-compiler.version>3.13.0</maven-compiler.version>
-        <maven-surefire.version>3.2.3</maven-surefire.version>
-        <allure-maven.version>2.12.0</allure-maven.version>
         <assertj.version>3.24.2</assertj.version>
 
-        <!-- Test Configuration -->
-        <allure.results.directory>${project.build.directory}/allure-results</allure.results.directory>
-        <parallel.tests>methods</parallel.tests>
-        <thread.count>5</thread.count>
+        <!-- API Testing Versions -->
+        <rest-assured.version>5.4.0</rest-assured.version>
+        <jackson.version>2.15.2</jackson.version>
+
+        <!-- Reporting Versions -->
+        <allure.version>2.23.0</allure.version>
+        <aspectj.version>1.9.7</aspectj.version>
+
+        <!-- Utility Versions -->
+        <lombok.version>1.18.32</lombok.version>
+        <slf4j.version>1.7.36</slf4j.version>
+
+        <!-- Plugin Versions -->
+        <maven-compiler.version>3.13.0</maven-compiler.version>
+        <maven-surefire.version>3.2.3</maven-surefire.version>
     </properties>
 
     <dependencies>
-        <!-- TestNG -->
+        <!-- Test Framework -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <version>${testng.version}</version>
+            <scope>test</scope>
         </dependency>
 
-        <!-- Allure Integration -->
+        <!-- Assertions -->
         <dependency>
-            <groupId>io.qameta.allure</groupId>
-            <artifactId>allure-testng</artifactId>
-            <version>${allure.version}</version>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
         </dependency>
 
-        <!-- RestAssured -->
+        <!-- API Testing -->
         <dependency>
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
@@ -56,24 +59,29 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Jackson for JSON -->
+        <!-- JSON Processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
         </dependency>
+
+        <!-- Test Reporting -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <version>${jackson.version}</version>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-testng</artifactId>
+            <version>${allure.version}</version>
         </dependency>
 
-        <!-- Lombok -->
+        <!-- Aspect Oriented Programming -->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>${aspectj.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Code Generation -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -81,38 +89,24 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- AssertJ for fluent assertions -->
+        <!-- Logging -->
         <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <version>${assertj.version}</version>
-        </dependency>
-
-        <!-- Fix Vulnerable Dependency -->
-        <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
-            <version>${commons-codec.version}</version>
-        </dependency>
-
-        <!-- AspectJ for Allure -->
-        <dependency>
-            <groupId>org.aspectj</groupId>
-            <artifactId>aspectjweaver</artifactId>
-            <version>${aspectj.version}</version>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Maven Compiler -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler.version}</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
                     <encoding>${project.build.sourceEncoding}</encoding>
                     <annotationProcessorPaths>
                         <path>
@@ -124,19 +118,6 @@
                 </configuration>
             </plugin>
 
-            <!-- Allure Report -->
-            <plugin>
-                <groupId>io.qameta.allure</groupId>
-                <artifactId>allure-maven</artifactId>
-                <version>${allure-maven.version}</version>
-                <configuration>
-                    <reportVersion>${allure.version}</reportVersion>
-                    <resultsDirectory>${allure.results.directory}</resultsDirectory>
-                    <reportDirectory>${project.build.directory}/allure-report</reportDirectory>
-                </configuration>
-            </plugin>
-
-            <!-- Test Runner with Parallel Execution -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -146,164 +127,10 @@
                         <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
                     </suiteXmlFiles>
                     <argLine>
-                        -javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"
-                        -Dfile.encoding=${project.build.sourceEncoding}
+                        -javaagent:${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar
                     </argLine>
-
-                    <!-- Parallel Test Execution -->
-                    <parallel>${parallel.tests}</parallel>
-                    <threadCount>${thread.count}</threadCount>
-                    <perCoreThreadCount>true</perCoreThreadCount>
-                    <useUnlimitedThreads>false</useUnlimitedThreads>
-
-                    <!-- Test Configuration -->
-                    <skip>false</skip>
-                    <testFailureIgnore>false</testFailureIgnore>
-                    <rerunFailingTestsCount>0</rerunFailingTestsCount>
-
-                    <!-- System Properties -->
-                    <systemPropertyVariables>
-                        <allure.results.directory>${allure.results.directory}</allure.results.directory>
-                        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-                    </systemPropertyVariables>
-
-                    <!-- Include/Exclude Patterns -->
-                    <includes>
-                        <include>**/*Test.java</include>
-                        <include>**/*Tests.java</include>
-                    </includes>
                 </configuration>
             </plugin>
         </plugins>
-
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>${maven-surefire.version}</version>
-                </plugin>
-            </plugins>
-        </pluginManagement>
     </build>
-
-    <profiles>
-        <!-- CI Profile with Enhanced Reporting -->
-        <profile>
-            <id>ci</id>
-            <properties>
-                <parallel.tests>classes</parallel.tests>
-                <thread.count>3</thread.count>
-            </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>io.qameta.allure</groupId>
-                        <artifactId>allure-maven</artifactId>
-                        <executions>
-                            <execution>
-                                <id>generate-allure-report</id>
-                                <phase>post-integration-test</phase>
-                                <goals>
-                                    <goal>report</goal>
-                                </goals>
-                                <configuration>
-                                    <reportVersion>${allure.version}</reportVersion>
-                                    <resultsDirectory>${allure.results.directory}</resultsDirectory>
-                                    <reportDirectory>${project.build.directory}/site/allure-maven</reportDirectory>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-
-                    <!-- Surefire with CI optimizations -->
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <parallel>methods</parallel>
-                            <threadCount>4</threadCount>
-                            <perCoreThreadCount>true</perCoreThreadCount>
-                            <useUnlimitedThreads>false</useUnlimitedThreads>
-                            <includes>
-                                <include>**/*Test.java</include>
-                            </includes>
-                            <systemPropertyVariables>
-                                <allure.results.directory>${allure.results.directory}</allure.results.directory>
-                                <env>ci</env>
-                            </systemPropertyVariables>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <!-- Fast Profile for Quick Development -->
-        <profile>
-            <id>fast</id>
-            <properties>
-                <parallel.tests>none</parallel.tests>
-                <thread.count>1</thread.count>
-            </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <parallel>none</parallel>
-                            <threadCount>1</threadCount>
-                            <skipTests>false</skipTests>
-                            <excludes>
-                                <exclude>**/*IntegrationTest.java</exclude>
-                                <exclude>**/*SlowTest.java</exclude>
-                            </excludes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <!-- Parallel Profile for Maximum Performance -->
-        <profile>
-            <id>parallel</id>
-            <properties>
-                <parallel.tests>methods</parallel.tests>
-                <thread.count>10</thread.count>
-            </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <parallel>methods</parallel>
-                            <threadCount>10</threadCount>
-                            <perCoreThreadCount>false</perCoreThreadCount>
-                            <useUnlimitedThreads>true</useUnlimitedThreads>
-                            <includes>
-                                <include>**/*Test.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
-
-    <reporting>
-        <excludeDefaults>true</excludeDefaults>
-        <plugins>
-            <plugin>
-                <groupId>io.qameta.allure</groupId>
-                <artifactId>allure-maven</artifactId>
-                <version>${allure-maven.version}</version>
-                <configuration>
-                    <reportVersion>${allure.version}</reportVersion>
-                    <resultsDirectory>${allure.results.directory}</resultsDirectory>
-                    <reportDirectory>${project.build.directory}/site/allure-report</reportDirectory>
-                </configuration>
-            </plugin>
-        </plugins>
-    </reporting>
 </project>

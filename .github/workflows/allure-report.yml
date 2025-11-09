@@ -2,9 +2,9 @@ name: API Tests with Allure Report
 
 on:
   push:
-    branches: [ "master", "TestAPI" ]
+    branches: [ "main", "TestAPI" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 jobs:
   test-and-publish:
